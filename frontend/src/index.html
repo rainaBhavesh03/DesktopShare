@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Desktop Share</title>
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/material-components-web/14.0.0/material-components-web.min.css"
+		rel="stylesheet">
+	<link href="main.css" rel="stylesheet">
+</head>
+
+<body>
+	<div class="container">
+		<h1>WebRTC Video Chat</h1>
+
+		<div class="videos">
+			<div>
+				<h2>Local Video</h2>
+				<div class="videoBox">
+					<video id="localVideo" autoplay playsinline muted></video>
+				</div>
+			</div>
+			<div>
+				<h2>Remote Video</h2>
+				<div class="videoBox">
+					<video id="remoteVideo" autoplay playsinline></video>
+					<div id="remote-video-loading-overlay" class="video-loading-overlay hidden">
+						<div class="spinner"></div>
+						<div class="loading-text">Connecting...</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="buttons">
+			<button id="cameraBtn" class="mdc-button mdc-button--raised">
+				<span class="mdc-button__label">Open camera</span>
+			</button>
+			<button id="createBtn" class="mdc-button mdc-button--raised" disabled>
+				<span class="mdc-button__label">Create room</span>
+			</button>
+			<button id="joinBtn" class="mdc-button mdc-button--raised" disabled>
+				<span class="mdc-button__label">Join room</span>
+			</button>
+			<button id="hangupBtn" class="mdc-button mdc-button--raised" disabled>
+				<span class="mdc-button__label">Hangup</span>
+			</button>
+		</div>
+
+		<div id="currentRoom"></div>
+	</div>
+
+	<!-- Room dialog -->
+	<div id="room-dialog" class="mdc-dialog">
+		<div class="mdc-dialog__container">
+			<div class="mdc-dialog__surface">
+				<h2 class="mdc-dialog__title">Join room</h2>
+				<div class="mdc-dialog__content">
+					<div class="mdc-text-field">
+						<input type="text" id="room-id" class="mdc-text-field__input">
+						<label class="mdc-floating-label" for="room-id">Room ID</label>
+						<div class="mdc-line-ripple"></div>
+					</div>
+				</div>
+				<div class="mdc-dialog__actions">
+					<button type="button" class="mdc-button mdc-dialog__button"
+						data-mdc-dialog-action="cancel">
+						<span class="mdc-button__label">Cancel</span>
+					</button>
+					<button id="confirmJoinBtn" type="button" class="mdc-button mdc-dialog__button"
+						data-mdc-dialog-action="accept">
+						<span class="mdc-button__label">Join</span>
+					</button>
+				</div>
+			</div>
+		</div>
+		<div class="mdc-dialog__scrim"></div>
+	</div>
+
+	<script
+		src="https://cdnjs.cloudflare.com/ajax/libs/material-components-web/14.0.0/material-components-web.min.js"></script>
+	<script src="config.js"></script>
+	<script src="app.js"></script>
+</body>
+
+</html>

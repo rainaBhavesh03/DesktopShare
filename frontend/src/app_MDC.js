@@ -1,4 +1,11 @@
 // app.js - Frontend WebRTC logic
+// Initialize MDC components
+document.addEventListener('DOMContentLoaded', () => {
+	const buttons = document.querySelectorAll('.mdc-button');
+	buttons.forEach(button => {
+		mdc.ripple.MDCRipple.attachTo(button);
+	});
+});
 
 // WebRTC variables
 let peerConnection = null;
@@ -58,197 +65,13 @@ async function apiRequest(url, method = 'GET', data = null) {
 async function init() {
 	document.querySelector('#permissionBtn').addEventListener('click', openUserMedia);
 	document.querySelector('#hangupBtn').addEventListener('click', hangUp);
-	document.querySelector('#createBtn').addEventListener('click', () => { createRoomDialog.classList.remove('overlay-hidden'); });
-	document.querySelector('#joinBtn').addEventListener('click', () => { roomDialog.classList.remove('overlay-hidden'); });
-	roomDialog = document.querySelector('#room-dialog');
-	createRoomDialog = document.querySelector('#create-room-dialog');
+	document.querySelector('#createBtn').addEventListener('click', createRoom);
+	document.querySelector('#joinBtn').addEventListener('click', joinRoom);
+	roomDialog = new mdc.dialog.MDCDialog(document.querySelector('#room-dialog'));
+	createRoomDialog = new mdc.dialog.MDCDialog(document.querySelector('#create-room-dialog'));
 
 	// Auto-initialize media at startup
 	await openUserMedia();
-
-	// Overlay - Closing from Click on Background logic
-	const overlays = document.querySelectorAll('.overlay'); // targets both create and join
-	overlays.forEach(overlay => {
-		const overlaySurface = overlay.querySelector('.overlay-surface');
-		overlaySurface.addEventListener('click', (event) => {
-			event.stopPropagation();
-		});
-
-		overlay.addEventListener('click', () => {
-			closeOverlay(overlay, "cancle");
-		});
-	});
-	// Create Room Overlay - Closing from Cancle Btn
-	document.querySelector('#cancleCreateBtn').addEventListener('click', () => {
-		closeOverlay(createRoomDialog, "cancle");
-	});
-	// Join Room Overlay - Closing from Cancle Btn
-	document.querySelector('#cancleJoinBtn').addEventListener('click', () => {
-		closeOverlay(roomDialog, "cancle");
-	});
-
-	// Create Room Overlay - Confirm btn
-	document.querySelector('#confirmCreateBtn').addEventListener('click', async () => {
-		const roomIdInput = document.querySelector('#create-room-id');
-		const enteredRoomId = roomIdInput.value.trim();
-		if (!enteredRoomId) {
-			alert('Please enter a room ID to create.'); // replace with a message in overlay
-			return;
-		}
-
-		try {
-			await initializeCallerPeerConnection();
-
-			const offer = await peerConnection.createOffer();
-			await peerConnection.setLocalDescription(offer);
-
-			const response = await apiRequest(api.createRoom(), 'POST', {
-				roomId: enteredRoomId,
-				offer: {
-					type: offer.type,
-					sdp: offer.sdp
-				}
-			});
-
-			if (response.status === 200) {
-				closeOverlay(createRoomDialog, "confirm");
-
-				isCaller = true;
-				roomId = enteredRoomId;
-				document.querySelector('#currentRoom').innerText = `Current room is ${roomId} - You are the caller!`;
-				startPollingForRejoin();
-			}
-			else {
-				console.log(response);
-				throw new Error(`Failed to create room: ${response.error || 'Unknown error'}`);
-			}
-		} catch (error) {
-			console.error('Error creating room:', error);
-			alert(`Please try again. ${error}`); // replace with a message in overlay
-			closeOverlay(createRoomDialog, "cancle");
-		}
-	});
-
-	// Join Room Overlay - Confirm Btn
-	document.querySelector('#confirmJoinBtn').addEventListener('click', async () => {
-		const roomIdInput = document.querySelector('#room-id');
-		const enteredRoomId = roomIdInput.value.trim();
-		if (!enteredRoomId) {
-			alert('Please enter a room ID to create.'); // replace with a message in overlay
-			return;
-		}
-
-		try {
-			// Get room data from API
-			const response = await apiRequest(api.getRoom(enteredRoomId));
-			const roomData = response.roomDocument;
-
-			if (response.status !== 200) {
-				console.log(response);
-				alert(`No room found with ID: ${enteredRoomId}`); // replace with a message in overlay
-				return;
-			}
-
-			console.log('Create PeerConnection with configuration:', CONFIG);
-			peerConnection = new RTCPeerConnection({
-				iceServers: CONFIG.ICE_SERVERS,
-				iceCandidatePoolSize: CONFIG.ICE_CANDIDATE_POOL_SIZE
-			});
-			registerPeerConnectionListeners();
-
-			// Add local tracks to the connection
-			localStream.getTracks().forEach(track => {
-				peerConnection.addTrack(track, localStream);
-			});
-
-			// Collecting ICE candidates
-			peerConnection.addEventListener('icecandidate', async event => {
-				if (event.candidate) {
-					console.log('Got local ICE candidate:', event.candidate);
-					try {
-						await apiRequest(api.addCalleeCandidate(enteredRoomId), 'POST', {
-							candidate: event.candidate.toJSON()
-						});
-					} catch (error) {
-						console.error('Failed to add callee candidate:', error);
-					}
-				}
-			});
-
-			peerConnection.addEventListener('track', event => {
-				console.log('Got remote track:', event.streams[0]);
-				event.streams[0].getTracks().forEach(track => {
-					console.log('Adding track to remoteStream:', track);
-					remoteStream.addTrack(track);
-				});
-			});
-
-			// Set remote description (offer)
-			const offer = roomData.offer;
-			console.log('Got offer:', offer);
-			await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-
-			// Create answer
-			const answer = await peerConnection.createAnswer();
-			console.log('Created answer:', answer);
-			await peerConnection.setLocalDescription(answer);
-
-			// Send answer to backend
-			try {
-				const answerResponse = await apiRequest(api.addAnswer(enteredRoomId), 'POST', {
-					answer: {
-						type: answer.type,
-						sdp: answer.sdp
-					}
-				});
-
-				if (answerResponse.status === 200) {
-					roomId = enteredRoomId;
-					closeOverlay(roomDialog, "confirm");
-					document.querySelector('#currentRoom').innerText = `Current room is ${roomId} - You are the callee`;
-					isCaller = false;
-
-					// Start the poll for room
-					pollForRoom();
-
-					// Poll for remote ICE candidates
-					pollForRemoteCandidates('caller');
-				}
-				else throw new Error(answerResponse.error);
-			} catch (error) {
-				console.error('Error sending answer:', error);
-				throw new Error(error);
-			}
-		} catch (error) {
-			console.error('Error joining room:', error);
-			alert(`Failed to join room with ID: ${enteredRoomId}`); // replace with a message in overlay
-			closeOverlay(roomDialog, "cancle");
-		}
-
-	});
-}
-
-// Function to close Overlay
-function closeOverlay(overlay, action) {
-	overlay.classList.add('overlay-hidden');
-
-	if (action === "confirm") {
-		document.querySelector('#createBtn').disabled = true;
-		document.querySelector('#joinBtn').disabled = true;
-		document.querySelector('#hangupBtn').disabled = false;
-	}
-	else if (action === "cancle") {
-		document.querySelector('#createBtn').disabled = false;
-		document.querySelector('#joinBtn').disabled = false;
-		document.querySelector('#hangupBtn').disabled = true;
-	}
-
-	if (overlay.id === 'create-room-dialog') {
-		document.querySelector('#create-room-id').value = '';
-	}
-	else if (overlay.id === 'room-dialog') {
-		document.querySelector('#room-id').value = '';
-	}
 }
 
 function startPollingForRejoin() {
@@ -308,6 +131,66 @@ async function initializeCallerPeerConnection() {
 			remoteStream.addTrack(track);
 		});
 	});
+}
+
+// Create a new room
+async function createRoom() {
+	document.querySelector('#createBtn').disabled = true;
+	document.querySelector('#joinBtn').disabled = true;
+	document.querySelector('#hangupBtn').disabled = false;
+
+	let createRoomDialogEvent = async function(event) {
+		createRoomDialog.unlisten('MDCDialog:closed', createRoomDialogEvent);
+		if (event.detail.action === 'cancel') {
+			document.querySelector('#createBtn').disabled = false;
+			document.querySelector('#joinBtn').disabled = false;
+			document.querySelector('#hangupBtn').disabled = true;
+		} else if (event.detail.action === 'accept') {
+			const roomIdInput = document.querySelector('#create-room-id');
+			const enteredRoomId = roomIdInput.value.trim();
+
+			if (!enteredRoomId) {
+				alert('Please enter a room ID to create.');
+				return;
+			}
+
+			try {
+				await initializeCallerPeerConnection();
+
+				const offer = await peerConnection.createOffer();
+				await peerConnection.setLocalDescription(offer);
+
+				const response = await apiRequest(api.createRoom(), 'POST', {
+					roomId: enteredRoomId,
+					offer: {
+						type: offer.type,
+						sdp: offer.sdp
+					}
+				});
+
+				if (response.status === 200) {
+					isCaller = true;
+					roomId = enteredRoomId;
+					document.querySelector('#currentRoom').innerText = `Current room is ${roomId} - You are the caller!`;
+					startPollingForRejoin();
+				}
+				else {
+					console.log(response);
+					throw new Error(`Failed to create room: ${response.error || 'Unknown error'}`);
+				}
+			} catch (error) {
+				console.error('Error creating room:', error);
+				alert(`Please try again. ${error}`);
+				document.querySelector('#createBtn').disabled = false;
+				document.querySelector('#joinBtn').disabled = false;
+				document.querySelector('#hangupBtn').disabled = true;
+				document.querySelector('#currentRoom').innerText = '';
+			}
+		}
+	}
+
+	createRoomDialog.open();
+	createRoomDialog.listen('MDCDialog:closed', createRoomDialogEvent);
 }
 
 // Poll for remote answer
@@ -428,9 +311,8 @@ async function pollForRoom() {
 	callerStatusPollingInterval = setInterval(async () => {
 		try {
 			const response = await apiRequest(api.getRoom(roomId));
-			const roomData = response.roomDocument;
 
-			if (!roomData) {
+			if (response.status !== 200) {
 				console.log('Room no longer exists. Hanging Up for Callee');
 				clearInterval(callerStatusPollingInterval);
 				hangUp();
@@ -447,6 +329,116 @@ async function pollForRoom() {
 			console.error('Error polling caller status:', error);
 		}
 	}, 2000); // Check every 2 seconds
+}
+
+// Join an existing room
+function joinRoom() {
+	document.querySelector('#createBtn').disabled = true;
+	document.querySelector('#joinBtn').disabled = true;
+	document.querySelector('#hangupBtn').disabled = false;
+
+	let roomDialogEvent = async function(event) {
+		roomDialog.unlisten('MDCDialog:closed', roomDialogEvent);
+		if (event.detail.action === 'cancel') {
+			document.querySelector('#createBtn').disabled = false;
+			document.querySelector('#joinBtn').disabled = false;
+			document.querySelector('#hangupBtn').disabled = true;
+		} else if (event.detail.action === 'accept') {
+			roomId = document.querySelector('#room-id').value.trim();
+			isCaller = false;
+			await joinRoomById(roomId);
+		}
+	}
+
+	roomDialog.open();
+	roomDialog.listen('MDCDialog:closed', roomDialogEvent);
+}
+
+// Join a room by ID
+async function joinRoomById(roomId) {
+	try {
+		// Get room data from API
+		const response = await apiRequest(api.getRoom(roomId));
+		const roomData = response.roomDocument;
+
+		if (response.status === 200) {
+			console.log('Create PeerConnection with configuration:', CONFIG);
+			peerConnection = new RTCPeerConnection({
+				iceServers: CONFIG.ICE_SERVERS,
+				iceCandidatePoolSize: CONFIG.ICE_CANDIDATE_POOL_SIZE
+			});
+			registerPeerConnectionListeners();
+
+			// Add local tracks to the connection
+			localStream.getTracks().forEach(track => {
+				peerConnection.addTrack(track, localStream);
+			});
+
+			// Collecting ICE candidates
+			peerConnection.addEventListener('icecandidate', async event => {
+				if (event.candidate) {
+					console.log('Got local ICE candidate:', event.candidate);
+					try {
+						await apiRequest(api.addCalleeCandidate(roomId), 'POST', {
+							candidate: event.candidate.toJSON()
+						});
+					} catch (error) {
+						console.error('Failed to add callee candidate:', error);
+					}
+				}
+			});
+
+			peerConnection.addEventListener('track', event => {
+				console.log('Got remote track:', event.streams[0]);
+				event.streams[0].getTracks().forEach(track => {
+					console.log('Adding track to remoteStream:', track);
+					remoteStream.addTrack(track);
+				});
+			});
+
+			// Set remote description (offer)
+			const offer = roomData.offer;
+			console.log('Got offer:', offer);
+			await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+			// Create answer
+			const answer = await peerConnection.createAnswer();
+			console.log('Created answer:', answer);
+			await peerConnection.setLocalDescription(answer);
+
+			// Send answer to backend
+			try {
+				await apiRequest(api.addAnswer(roomId), 'POST', {
+					answer: {
+						type: answer.type,
+						sdp: answer.sdp
+					}
+				});
+			} catch (error) {
+				console.error('Error sending answer:', error);
+				alert('Failed to send answer to remote peer.');
+			}
+
+			console.log('Join room:', roomId);
+			document.querySelector('#currentRoom').innerText = `Current room is ${roomId} - You are the callee`;
+
+			// Start the poll for room
+			pollForRoom();
+
+			// Poll for remote ICE candidates
+			pollForRemoteCandidates('caller');
+		}
+		else {
+			console.log(response);
+			throw new Error(`Failed to get room data: ${response.error || 'Unknown error'}`);
+		}
+	} catch (error) {
+		console.error('Error joining room:', error);
+		alert(`Failed to join room with ID: ${roomId}`);
+		document.querySelector('#createBtn').disabled = false;
+		document.querySelector('#joinBtn').disabled = false;
+		document.querySelector('#hangupBtn').disabled = true;
+	}
 }
 
 // Open user media (camera/mic)
@@ -710,4 +702,3 @@ function registerPeerConnectionListeners() {
 
 // Initialize the application
 init();
-

@@ -7,3 +7,5 @@ package-lock.json
 
 # Environment files
 .env
+
+certificates/

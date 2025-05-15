@@ -1,6 +1,6 @@
 // config.js - Frontend configuration
 const CONFIG = {
-	API_URL: 'http://localhost:4000/api',  // Backend API URL
+	API_URL: 'https://192.168.1.7:4000/api',  // Backend API URL
 	ICE_SERVERS: [
 		{
 			urls: 'turn:openrelay.metered.ca:80',

@@ -2,13 +2,16 @@
 body {
   font-family: 'Roboto', sans-serif;
   margin: 0;
-  padding: 20px;
   background-color: #f5f5f5;
 }
 
 .container {
   max-width: 1200px;
   margin: 0 auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 h1 {
@@ -16,91 +19,61 @@ h1 {
   text-align: center;
 }
 
+
+
+
+
 .videos {
   display: flex;
-  gap: 40px;
-  margin-bottom: 50px;
-  justify-content: center;
+    gap: 40px;
+    padding-inline: 20px;
+    margin-bottom: 50px;
+    justify-content: space-evenly;
 }
 
-/* This is the parent container for the video and its overlay */
-.videos > div {
-  position: relative; /* Crucial: Establishes the positioning context for the absolute overlay */
-  display: inline-block; /* Or block, or flex item, depending on your desired layout of video containers */
-  /* Add a specific width and height here if your video elements don't inherently have them
-     or if you want to constrain the size. For example:
-     width: 400px;
-     height: 300px;
-  */
+.videos-container {
+  position: relative;
+  display: inline-block;
+  flex: 1 1;
 }
 
 video {
-  width: 100%; /* Make video fill the width of its parent container (.videos > div) */
-  height: 100%; /* Make video fill the height of its parent container (.videos > div) */
-  object-fit: cover; /* Or 'contain', depending on how you want the video to scale */
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   background-color: #000;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  display: block; /* Good practice for elements that you want to fill width/height */
+  display: block;
 }
 
 .videoBox {
   position: relative;
-}
-
-.buttons {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-button {
-  margin: 5px;
-}
-
-#currentRoom {
-  text-align: center;
-  margin-top: 20px;
-  font-weight: bold;
-  color: #4285F4;
-}
-
-@media (max-width: 768px) {
-  .videos {
-    flex-direction: column;
-  }
-
-  .videos > div {
-    max-width: 100%;
-    width: 100%; /* Ensure it takes full width in column layout */
-  }
+  aspect-ratio: calc(4 / 3);
 }
 
 .video-loading-overlay {
-  position: absolute; /* Positioned relative to the nearest positioned ancestor (.videos > div) */
+  position: absolute;
   top: 0;
   left: 0;
-  width: 100%; /* Covers the full width of .videos > div */
-  height: 100%; /* Covers the full height of .videos > div */
-  background-color: rgba(0, 0, 0, 0.7); /* Slightly darker for better visibility */
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   color: white;
   font-size: 1.2em;
-  z-index: 10; /* Ensures it's on top of the sibling video element */
-  border-radius: 8px; /* Match the video's border-radius if desired */
-  opacity: 1; /* Start visible */
-  transition: opacity 0.3s ease-in-out; /* For smooth hide/show if you animate opacity */
+  z-index: 10;
+  border-radius: 8px;
+  opacity: 1;
+  transition: opacity 0.3s ease-in-out;
 }
 
-.video-loading-overlay.hidden { /* Use opacity for smoother transitions if preferred over display:none */
+.video-loading-overlay.hidden {
   opacity: 0;
-  pointer-events: none; /* Prevent interaction when hidden */
-  /* display: none !important; */ /* Keep this if you prefer hard hide/show */
+  pointer-events: none;
 }
 
 .spinner {
@@ -120,4 +93,182 @@ button {
 
 .loading-text {
   font-size: 16px;
+}
+
+
+
+
+
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.controls-button {
+  padding: 10px 15px;
+  border-radius: 10px;
+  border: solid transparent;
+  border-width: 2px;
+  background: #87cefab3;
+}
+.controls-button:hover {
+  cursor: pointer;
+  border-style: dashed;
+  border-color: black;
+  background: white;
+}
+.controls-button:disabled {
+  background: #80808045;
+  cursor: default;
+  border: solid transparent;
+}
+
+.controls-button-label {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+#currentRoom {
+  text-align: center;
+  margin-top: 20px;
+  font-weight: bold;
+  color: #4285F4;
+}
+
+@media (max-width: 768px) {
+  h1 {
+    margin: 10px 0 20px 0;
+  }
+
+  .container {
+    max-width: 400px;
+  }
+
+  .videos {
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 10px;
+  }
+
+  .videos-container {
+    max-width: 200px;
+    min-width: 150p;
+  }
+
+  h2 {
+    margin: 0 0 0px 0;
+  }
+
+  .controls {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #currentRoom {
+    margin-top: 10px;
+  }
+}
+
+
+
+
+.overlay {
+  position: absolute;
+  height: 100vh;
+  width: 100vw;
+  top: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+.overlay-hidden {
+  display: none;
+}
+
+.overlay-container {
+}
+
+.overlay-surface {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 0 80px 40px;
+}
+
+.overlay-title {
+  margin: 0px 10px 30px 10px;
+  font-size: 28px;
+}
+
+.overlay-content {
+  margin: 10px;
+}
+
+.overlay-text-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.overlay-text-field-input {
+  padding: 5px 10px;
+  border-radius: 10px;
+  border-style: dashed;
+  border-width: 3px;
+  border-color: silver;
+  font-size: 12px;
+  width: 250px;
+}
+.overlay-text-field-input:focus-visible {
+  outline: none;
+  border-color: black;
+  border-width: 3px;
+}
+
+.overlay-floating-label {
+  margin: 0 0 5px 15px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.overlay-line-ripple {
+
+}
+
+.overlay-actions {
+  margin: 30px 0px 0px 0px;
+  display: flex;
+  gap: 30px;
+}
+
+.overlay-button {
+  padding: 10px 15px;
+  border-radius: 10px;
+  border: solid transparent;
+  border-width: 2px;
+  background: #87cefab3;
+}
+.overlay-button:hover {
+  cursor: pointer;
+  border-style: dashed;
+  border-color: black;
+  background: white;
+}
+
+.overlay-button-label {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.overlay-scrim {
 }

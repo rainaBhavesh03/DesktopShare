@@ -3,8 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const https = require('https');
 const fs = require('fs');
-const { MongoClient, ObjectId } = require('mongodb');
 const dotenv = require('dotenv');
+const { Server } = require('socket.io');
 
 // Load environment variables
 dotenv.config();
@@ -17,232 +17,235 @@ const credentials = {
 };
 
 const app = express();
-const PORT = process.env.PORT;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// MongoDB Connection
-const mongoUri = process.env.MONGO_URI;
-const dbName = process.env.DBNAME;
-const roomsCollectionName = process.env.COLLNAME;
-
-let dbClient;
-let roomsCollection;
-
-async function connectToDatabase() {
-	try {
-		dbClient = new MongoClient(mongoUri);
-		await dbClient.connect();
-		const db = dbClient.db(dbName);
-		roomsCollection = db.collection(roomsCollectionName);
-		console.log('Connected to MongoDB Atlas');
-		return true;
-	} catch (error) {
-		console.error('Failed to connect to MongoDB Atlas:', error);
-		return false;
-	}
-}
-
-// API Routes
-
-// Create a new room
-app.post('/api/rooms', async (req, res) => {
-	try {
-		const existingRoom = await roomsCollection.findOne({ roomId: req.body.roomId });
-		if (existingRoom) {
-			return res.status(409).json({ status: 409, error: 'Room with this ID already exists' });
-		}
-
-		const roomWithOffer = {
-			roomId: req.body.roomId,
-			offer: req.body.offer,
-			answer: null,
-			callerCandidates: [],
-			calleeCandidates: []
-		};
-
-		await roomsCollection.insertOne(roomWithOffer);
-		res.status(200).json({ status: 200, success: true });
-	} catch (error) {
-		console.error('Error creating room:', error);
-		res.status(500).json({ status: 500, error: 'Failed to create room' });
-	}
-});
-
-// Get room by ID
-app.get('/api/rooms/:roomId', async (req, res) => {
-	try {
-		const roomId = req.params.roomId;
-		const roomDocument = await roomsCollection.findOne({ roomId: roomId });
-
-		if (roomDocument) {
-			res.status(200).json({ status: 200, roomDocument });
-		} else {
-			res.status(404).json({ status: 404, error: 'Room not found' });
-		}
-	} catch (error) {
-		console.error('Error getting room:', error);
-		res.status(500).json({ status: 500, error: 'Failed to get room' });
-	}
-});
-
-// Add answer to room
-app.post('/api/rooms/:roomId/answer', async (req, res) => {
-	try {
-		const roomId = req.params.roomId;
-		const answer = req.body.answer;
-
-		await roomsCollection.updateOne(
-			{ roomId: roomId },
-			{ $set: { answer: answer } }
-		);
-
-		res.status(200).json({ status: 200, success: true });
-	} catch (error) {
-		console.error('Error adding answer:', error);
-		res.status(500).json({ status: 500, error: 'Failed to add answer' });
-	}
-});
-
-// Update offer to room
-app.patch('/api/rooms/:roomId/offer', async (req, res) => {
-	try {
-		const roomId = req.params.roomId;
-		const offer = req.body.offer;
-
-		await roomsCollection.updateOne(
-			{ roomId: roomId },
-			{ $set: { offer: offer } }
-		);
-
-		res.status(200).json({ success: true });
-	} catch (error) {
-		console.error('Error updating offer:', error);
-		res.status(500).json({ error: 'Failed to update offer' });
-	}
-});
-
-// Add ICE candidate
-app.post('/api/rooms/:roomId/callerCandidates', async (req, res) => {
-	try {
-		const roomId = req.params.roomId;
-		const candidate = req.body.candidate;
-
-		await roomsCollection.updateOne(
-			{ roomId: roomId },
-			{ $push: { callerCandidates: candidate } }
-		);
-
-		res.status(200).json({ success: true });
-	} catch (error) {
-		console.error('Error adding caller candidate:', error);
-		res.status(500).json({ error: 'Failed to add caller candidate' });
-	}
-});
-
-app.post('/api/rooms/:roomId/calleeCandidates', async (req, res) => {
-	try {
-		const roomId = req.params.roomId;
-		const candidate = req.body.candidate;
-
-		await roomsCollection.updateOne(
-			{ roomId: roomId },
-			{ $push: { calleeCandidates: candidate } }
-		);
-
-		res.status(200).json({ success: true });
-	} catch (error) {
-		console.error('Error adding callee candidate:', error);
-		res.status(500).json({ error: 'Failed to add callee candidate' });
-	}
-});
-
-// Get all caller candidates
-app.get('/api/rooms/:roomId/callerCandidates', async (req, res) => {
-	try {
-		const roomId = req.params.roomId;
-		const roomDocument = await roomsCollection.findOne({ roomId: roomId });
-
-		if (roomDocument && roomDocument.callerCandidates) {
-			res.status(200).json({ candidates: roomDocument.callerCandidates });
-		} else {
-			res.status(404).json({ error: 'Room or candidates not found' });
-		}
-	} catch (error) {
-		console.error('Error getting caller candidates:', error);
-		res.status(500).json({ error: 'Failed to get caller candidates' });
-	}
-});
-
-// Get all callee candidates
-app.get('/api/rooms/:roomId/calleeCandidates', async (req, res) => {
-	try {
-		const roomId = req.params.roomId;
-		const roomDocument = await roomsCollection.findOne({ roomId: roomId });
-
-		if (roomDocument && roomDocument.calleeCandidates) {
-			res.status(200).json({ candidates: roomDocument.calleeCandidates });
-		} else {
-			res.status(404).json({ error: 'Room or candidates not found' });
-		}
-	} catch (error) {
-		console.error('Error getting callee candidates:', error);
-		res.status(500).json({ error: 'Failed to get callee candidates' });
-	}
-});
-
-// Delete room
-app.delete('/api/rooms/:roomId', async (req, res) => {
-	try {
-		const roomId = req.params.roomId;
-		await roomsCollection.deleteOne({ roomId: roomId });
-		res.status(200).json({ success: true });
-	} catch (error) {
-		console.error('Error deleting room:', error);
-		res.status(500).json({ error: 'Failed to delete room' });
-	}
-});
-
-// Reset answer when callee leaves
-app.patch('/api/rooms/:roomId/resetForCalleeLeave', async (req, res) => {
-	const roomId = req.params.roomId;
-	try {
-		await roomsCollection.updateOne(
-			{ roomId: roomId },
-			{ $unset: { answer: null, calleeCandidates: [] } }
-		);
-
-		res.status(200).json({ message: "Room reset for callee rejoin." });
-	} catch (err) {
-		res.status(500).json({ error: "Failed to reset room." });
-	}
-});
+// Websocket
+let io = null;
 
 // Start server
-async function startServer() {
-	const dbConnected = await connectToDatabase();
+const PORT = 4000;
+const httpsServer = https.createServer(credentials, app);
+io = new Server(httpsServer, {
+	cors: {
+		origin: "https://192.168.1.7:8080",
+	}
+});
+httpsServer.listen(PORT, () => {
+	console.log(`HTTPS server running on https://192.168.1.7:${PORT}`);
+});
 
-	if (dbConnected) {
-		const httpsServer = https.createServer(credentials, app);
-		httpsServer.listen(PORT, () => {
-			console.log(`HTTPS Server running on port ${PORT}`);
+
+
+// Store active rooms
+const rooms = new Map();
+
+// Store early ICE candidates
+const earlyIceCandidates = new Map();
+
+io.on('connection', (socket) => {
+	console.log(`Client connected: ${socket.id}`);
+
+	// Check if room is available
+	socket.on('check-room', (data, callback) => {
+		const { roomId } = data;
+		callback({ success: rooms.has(roomId) });
+	});
+
+	// Handle room creation
+	socket.on('create-room', (data, callback) => {
+		const { roomId, offer } = data;
+		if (!roomId || !offer) {
+			return callback({ success: false, message: 'Invalid room data' });
+		}
+		// Recheck if room is available - Resolves race condition wherein multiple clients try to create the same room
+		if (rooms.has(roomId)) return callback({ success: false, message: 'Room already exists' });
+
+		// Save the room and join the socket
+		rooms.set(roomId, { callerId: socket.id, calleeId: null, offer, lastActivity: Date.now() }); // Track when the room was last active
+		earlyIceCandidates.set(roomId, []);
+		socket.join(roomId);
+
+		updateRoomActivity(roomId); // Update activity timestamp
+		console.log(`Room created: ${roomId} by ${socket.id}`);
+		callback({ success: true, roomId });
+	});
+
+	// Handle room joining
+	socket.on('join-room', (data, callback) => {
+		const { roomId } = data;
+		// Recheck if room is available - Resolves race condition wherein multiple clients try to create the same room
+		if (!rooms.has(roomId)) return callback({ success: false, message: "Room doesn't exist" });
+
+		const room = rooms.get(roomId);
+		if (room.calleeId) return callback({ success: false, message: "Room is full" });
+
+		// Update room with callee info
+		room.calleeId = socket.id;
+		rooms.set(roomId, room);
+		socket.join(roomId);
+
+		// Send the stored offer to the callee
+		socket.emit('offer', {
+			roomId,
+			offer: room.offer
 		});
+
+		// Send any stored early ICE candidates to the callee
+		if (earlyIceCandidates.has(roomId)) {
+			const candidates = earlyIceCandidates.get(roomId);
+			candidates.forEach(candidate => {
+				socket.emit('ice-candidate', {
+					roomId,
+					candidate
+				});
+			});
+			console.log(`Sent ${candidates.length} early ICE candidates to callee in room: ${roomId}`);
+		}
+
+		updateRoomActivity(roomId); // Update activity timestamp
+		console.log(`Client ${socket.id} joined room: ${roomId}`);
+		callback({ success: true, message: `Joined room: ${roomId}` });
+	});
+
+	// Handle answer from callee
+	socket.on('answer', (data) => {
+		const { roomId, answer } = data;
+
+		const room = rooms.get(roomId);
+		socket.to(room.callerId).emit('answer', { // Forward the answer to the caller
+			roomId,
+			answer
+		});
+
+		updateRoomActivity(roomId); // Update activity timestamp
+		console.log(`Answer sent from ${socket.id} to caller in room: ${roomId}`);
+	});
+
+	// Handle ICE candidates
+	socket.on('ice-candidate', (data) => {
+		const { roomId, candidate, isCaller } = data;
+		if (!rooms.has(roomId)) return;
+
+		const room = rooms.get(roomId);
+		if (isCaller) {
+			if (room.calleeId) { // Forward caller's ICE candidate to callee if present
+				socket.to(room.calleeId).emit('ice-candidate', {
+					roomId,
+					candidate
+				});
+			} else {
+				if (earlyIceCandidates.has(roomId)) { // Store early ICE candidates until callee joins
+					earlyIceCandidates.get(roomId).push(candidate);
+				}
+			}
+		} else {
+			socket.to(room.callerId).emit('ice-candidate', { // Forward callee's ICE candidate to caller
+				roomId,
+				candidate
+			});
+		}
+
+		updateRoomActivity(roomId); // Update activity timestamp
+		console.log(`ICE candidate processed in room: ${roomId}`);
+	});
+
+	// Update offer for roomId
+	socket.on('update-room-offer', (data, callback) => {
+		const { roomId, offer } = data;
+		if (!roomId || !offer) {
+			return callback({ success: false, message: 'Invalid room data' });
+		}
+
+		// Check if room exists and this socket is the caller
+		if (!rooms.has(roomId)) return callback({ success: false, message: 'Room does not exist' });
+		const room = rooms.get(roomId);
+		if (room.callerId !== socket.id) return callback({ success: false, message: 'Only the caller can update the room offer' });
+
+		room.offer = offer;
+		room.calleeId = null;
+		updateRoomActivity(roomId); // Update activity timestamp
+
+		// Clear any early ICE candidates as they're no longer valid with new offer
+		if (earlyIceCandidates.has(roomId)) {
+			earlyIceCandidates.set(roomId, []);
+		}
+
+		console.log(`Room offer updated for ${roomId} by caller ${socket.id}`);
+		callback({ success: true });
+	});
+
+	// Handle disconnection or leaving a room
+	socket.on('leave-room', (data) => {
+		const { roomId, isCaller } = data;
+		handleDisconnection(socket, roomId, isCaller);
+	});
+
+	socket.on('disconnect', () => {
+		console.log(`Client disconnected: ${socket.id}`);
+
+		// Find any rooms this socket is part of
+		rooms.forEach((room, roomId) => {
+			if (room.callerId === socket.id) {
+				handleDisconnection(socket, roomId, true);
+			} else if (room.calleeId === socket.id) {
+				handleDisconnection(socket, roomId, false);
+			}
+		});
+	});
+});
+
+function handleDisconnection(socket, roomId, isCaller) {
+	if (!rooms.has(roomId)) return;
+
+	const room = rooms.get(roomId);
+	if (isCaller) {
+		// If caller leaves, notify callee and delete the room
+		if (room.calleeId) io.to(room.calleeId).emit('user-disconnected', { roomId });
+		rooms.delete(roomId);
+		// Clean up stored ICE candidates
+		if (earlyIceCandidates.has(roomId)) {
+			earlyIceCandidates.delete(roomId);
+		}
+		console.log(`Room ${roomId} deleted because caller left`);
 	} else {
-		console.error('Failed to start server due to database connection issues');
-		process.exit(1);
+		// If callee leaves, update the room and notify caller
+		if (room.callerId) io.to(room.callerId).emit('user-disconnected', { roomId });
+		// Keep the room for reconnection, just remove callee
+		room.calleeId = null;
+		rooms.set(roomId, room);
+		console.log(`Callee left room ${roomId}`);
+	}
+	socket.leave(roomId);
+	updateRoomActivity(roomId); // Update activity timestamp
+}
+
+
+// Update room active timestamp
+function updateRoomActivity(roomId) {
+	if (rooms.has(roomId)) {
+		const room = rooms.get(roomId);
+		room.lastActivity = Date.now();
+		rooms.set(roomId, room);
 	}
 }
 
-startServer();
+// Periodically clean up stale rooms (e.g., every 5 minutes)
+setInterval(() => {
+	const staleTime = 3600000; // 1 hour in milliseconds
+	const now = Date.now();
 
-// Handle graceful shutdown
-process.on('SIGINT', async () => {
-	console.log('Shutting down server...');
-	if (dbClient) {
-		await dbClient.close();
-		console.log('Database connection closed');
-	}
-	process.exit(0);
-});
+	rooms.forEach((room, roomId) => {
+		// Add lastActivity timestamp to your room objects
+		if (room.lastActivity && (now - room.lastActivity > staleTime)) {
+			console.log(`Cleaning up stale room: ${roomId}`);
+			rooms.delete(roomId);
+
+			if (earlyIceCandidates.has(roomId)) {
+				earlyIceCandidates.delete(roomId);
+			}
+		}
+	});
+}, 300000); // Run every 5 minutes

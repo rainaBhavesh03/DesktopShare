@@ -1,145 +1,117 @@
-# WebRTC Two-Person Video Calling (with Future Plans for Remote Control)
+# WebRTC Two-Person Video Calling
 
-Hi there! 👋 This is a personal project where I'm building a simple two-person video calling app using WebRTC. Right now, it uses a polling mechanism for signaling, but the long-term goal is to add real-time features like screen sharing and remote control, possibly powered by WebSockets.
+👋 Welcome to my WebRTC project! I'm building a simple two-person video calling app with WebRTC, with plans to add screen sharing and remote control features. This project has recently been upgraded to use WebSockets (Socket.io) for signaling instead of polling.
 
-This project is both a technical exploration and a way for me to better understand real-time peer-to-peer communication.
+## ✨ Current Features
 
-## What's Working Right Now
+- ✅ **Two-person video calls** using WebRTC peer connections
+- 🔄 **Real-time signaling** via Socket.io WebSockets
+- 🛠️ **Room management** with create/join functionality
+- 🔄 **Reconnection handling** when participants disconnect
+- 🖥️ **Clean, intuitive UI** for call management
 
-- ✅ **Two-person video calls** using WebRTC.
-    
-- 🔁 **Basic signaling** via polling to exchange session descriptions and ICE candidates.
-    
-- 🖥️ **Simple UI** with buttons to create or join a call and hang up.
-    
+> **Update:** Polling has been replaced with Socket.io WebSockets for more efficient, real-time signaling!
 
-> ⚠️ Heads up: The signaling mechanism is still using polling, which isn’t the most efficient. Switching to WebSockets is high on my to-do list.
+## 🚀 Why Remote Control? (And Why It's Challenging)
 
-## Why Remote Control? (And Why It’s Tricky)
+Remember when Skype and other apps let you control someone else's computer? This feature has become increasingly rare due to:
 
-Remember how older versions of Skype let you control someone else’s screen? That kind of feature has mostly disappeared, and I’m curious about the reasons behind that. From what I’ve seen, it comes down to:
+- 🛡️ **Security concerns:** Remote control introduces significant security risks
+- 🔧 **Technical complexity:** Implementing secure input control over P2P is challenging
+- 💻 **OS alternatives:** Most operating systems now offer built-in remote assistance tools
+- 🎯 **Shifting priorities:** Modern communication tools focus on meetings and messaging
 
-- 🛡️ **Security concerns:** Remote control opens a lot of potential for abuse if not implemented carefully.
-    
-- 🔧 **Complexity:** Secure input control over a peer-to-peer connection is hard to get right.
-    
-- 💻 **OS-level alternatives:** Platforms like Windows and macOS now offer built-in remote support tools.
-    
-- 🎯 **Shift in priorities:** Most communication tools are now focused more on messaging, calls, and team collaboration.
-    
+Despite these challenges, I believe there's value in exploring this functionality as a learning experience.
 
-Still, I think it's an exciting challenge worth exploring.
+## 🗺️ Roadmap
 
-## What I’m Planning Next
+Here's what I'm planning to work on:
 
-Here’s a rough roadmap of where I want to take this:
+- [x] Replace polling with WebSockets for signaling
+- [ ] Implement screen sharing via `getDisplayMedia()`
+- [ ] Create data channels for text chat and control signals
+- [ ] Design and implement remote control functionality
+- [ ] Enhance UI/UX with connection status indicators
+- [ ] Improve error handling and user feedback
+- [ ] Add support for room persistence
+- [ ] Explore multi-participant calls (3+ users)
+- [ ] Implement security best practices for remote control
 
-     
-- 🔄 **WebSockets:** Replace polling with a real-time signaling system for a much smoother experience.
-     
-- 🖥️ **Screen sharing:** Using `getDisplayMedia()` to let users share their screen or an app window.
-     
-- 🎮 **Remote control:** Eventually, I’d like to allow one user to control the other’s screen input (mouse/keyboard) during screen sharing. That'll likely involve:
-        
-    - WebRTC **data channels** to send input events.
-        
-    - Possibly interacting with **OS-level APIs**, if needed.
-        
-    - Starting small with limited, safe forms of interaction.
-     
-- 🧪 **More experimentation:** This is a learning project, so I’ll be iterating as I go.
-     
+## 🛠️ Setup Instructions
 
-## Getting Set Up
+### Prerequisites
 
-### Requirements
+- Node.js and npm installed
+- Modern browser with WebRTC support (Chrome, Firefox, Edge, Safari)
+- Webcam and microphone for video/audio
+- SSL certificates for local development (WebRTC requires HTTPS)
 
-Before running the project, make sure you have:
-
-- **Npm + Node.js + ExpressJs**
-    
-- A **modern browser** (Chrome, Firefox, Safari)
-    
-- A **webcam + mic** for video/audio communication
-    
-
-### 1\. Clone the Repo
+### 1. Clone the Repository
 
 ```bash
-git clone [YOUR_REPOSITORY_URL] cd [YOUR_PROJECT_DIRECTORY]`\
+git clone [YOUR_REPOSITORY_URL]
+cd [YOUR_PROJECT_DIRECTORY]
 ```
 
-### 2\. Configure API URL
-
-You'll need a backend to store and retrieve signaling data. In the frontend (`app.js`), there's a `CONFIG.API_URL` setting:
-
-```js
-const CONFIG = {     API_URL: 'http://localhost:3000/api' // Set this to your backend API };
-```
-
-You’ll also need to define this config in a separate `config.js` file:
-
-```js
-window.CONFIG = {     API_URL: 'http://localhost:3000/api',     ICE_SERVERS: [         { urls: 'stun:stun.l.google.com:19302' },         // Add TURN servers here if needed     ],     ICE_CANDIDATE_POOL_SIZE: 10, };
-```
-
-### 3\. Serve the Frontend
-
-You can serve the frontend using any simple static server. Here’s one way with `http-server`:
+### 2. Install Dependencies
 
 ```bash
-npm install -g http-server
-npx http-server -p 8080 -c-1
+# Install server dependencies
+npm install
 ```
 
-Then open the provided URL (usually `http://localhost:8080`) in your browser.
+### 3. Configure WebSocket Server
 
-## How to Use It
+Create or modify your config files:
 
-1. Open the app in **two different browser windows or devices**.
-    
-2. In one window:
-    
-    - Click **Create Room**.
-        
-    - A room ID will appear—share this with the other person.
-        
-3. In the other window:
-    
-    - Click **Join Room**, enter the room ID, and click **Join**.
-        
-4. If all goes well, you’ll see each other’s video streams and can start chatting.
-    
-5. Click **Hang Up** to end the call.
-    
+```javascript
+// config.js for client
+window.CONFIG = {
+    WEBSOCKET_URL: 'wss://localhost:4000',  // Update with your server address
+    ICE_SERVERS: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        // Add TURN servers for NAT traversal in production
+    ],
+    ICE_CANDIDATE_POOL_SIZE: 10,
+};
+```
 
-## Notes & Caveats
+### 4. Generate SSL Certificates (for development)
 
-- ⚠️ **Polling-based signaling** is currently in use. It works but isn’t optimal.
-    
-- 🌐 **STUN/TURN servers** are necessary for WebRTC to work across networks. Make sure your ICE server config is correct.
-    
-- 🔄 **Reconnect handling** is basic for now. (Treating state 'disconnected' and 'failed' as "Hang Up")
-    
-- 📺 **No screen sharing or remote control yet** — these are planned future features.
-    
+WebRTC requires HTTPS, even for local development:
 
-## Roadmap & Future Improvements
+```bash
+# Using OpenSSL to generate self-signed certificates
+mkdir -p certs
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout certs/key.pem -out certs/cert.pem
+```
 
-Here’s what I’d like to work on next:
+### 5. Start the Server
 
-- 🔄 Switch to **WebSockets** for real-time signaling
-    
-- 📺 Add **screen sharing** using `getDisplayMedia()`
-    
-- 🎮 Explore **remote control** over WebRTC data channels
-    
-- 🖌️ Improve the **UI/UX**
-    
-- 🛑 Add better **error handling** and status feedback
-    
-- 👥 Support **more than two participants**
-    
-- 🔐 Add security considerations, especially around remote control
-    
+```bash
+# Start WebSocket signaling server
+node server.js
+```
 
+### 6. Serve the Frontend
+
+```bash
+# Using any static file server (example with http-server)
+npx http-server -p 8080 --ssl --cert certs/cert.pem --key certs/key.pem
+```
+
+Then open `https://localhost:8080` in your browser (accept the self-signed certificate warning).
+
+## 📱 How to Use
+
+1. **Access the app** in two different browser windows or devices
+2. **Allow camera/microphone access** when prompted
+3. In the first window:
+   - Click **Create Room**
+   - Enter a room ID or use the generated one
+   - Share the room ID with the second participant
+4. In the second window:
+   - Click **Join Room**
+   - Enter the room ID from the first participant
+5. You should now see both video streams and be connected
+6. Click **Hang Up** to end the call

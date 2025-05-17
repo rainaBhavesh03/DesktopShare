@@ -19,6 +19,23 @@
 				<div class="videoBox">
 					<video id="localVideo" autoplay playsinline muted></video>
 				</div>
+				<div class="videoBox-controls">
+					<button id="cameraToggleBtn" class="controls-button ">
+						<span class="controls-button-label">Camera</span>
+					</button>
+					<button id="cameraSwitchBtn" class="controls-button ">
+						<span class="controls-button-label">Switch</span>
+					</button>
+					<select id="videoOptions" class="controls-button controls-button-label">
+						<button>
+							<selectedcontent></selectedcontent>
+						</button>
+						<option value="temp">Fetching options...</option>
+					</select>
+					<button id="micBtn" class="controls-button ">
+						<span class="controls-button-label">Mute</span>
+					</button>
+				</div>
 			</div>
 			<div class="videos-container">
 				<h2>Remote Video</h2>
@@ -47,6 +64,7 @@
 			</button>
 		</div>
 	</div>
+
 
 	<div id="create-room-dialog" class="overlay overlay-hidden">
 		<div class="overlay-surface">

@@ -113,6 +113,7 @@ video {
   border: solid transparent;
   border-width: 2px;
   background: #87cefab3;
+  outline: none;
 }
 .controls-button:hover {
   cursor: pointer;
@@ -129,6 +130,36 @@ video {
 .controls-button-label {
   font-size: 16px;
   font-weight: 600;
+}
+
+#videoOptions {
+  width: 185px;
+  padding-right: 10px;
+}
+#videoOptions > option {
+  font-size: 14px;
+  font-weight: normal;
+}
+#videoOptions selectedcontent {
+  overflow: hidden;
+  text-wrap-mode: nowrap;
+}
+#videoOptions:open {
+  cursor: pointer;
+  border-style: dashed;
+  border-color: black;
+  background: white;
+}
+#videoOptions, ::picker(select) {
+  appearance: base-select;
+}
+#videoOptions::picker-icon {
+  color: #999;
+  transition: 0.4s rotate;
+}
+#videoOptions:open::picker-icon {
+  color: black;
+  rotate: 180deg;
 }
 
 #currentRoom {

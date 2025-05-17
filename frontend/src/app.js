@@ -9,6 +9,9 @@ let createRoomDialog = null;
 let roomId = null;
 let isCaller = null;
 let hasInitializedMedia = false; // Track if we've already initialized media
+let audioOptions = [];
+let videoOptions = [];
+let stream = null;
 
 // Websocket variables
 let socket = null;
@@ -133,6 +136,45 @@ async function init() {
 	document.querySelector('#hangupBtn').addEventListener('click', hangUp);
 	document.querySelector('#createBtn').addEventListener('click', () => { createRoomDialog.classList.remove('overlay-hidden'); });
 	document.querySelector('#joinBtn').addEventListener('click', () => { roomDialog.classList.remove('overlay-hidden'); });
+	document.querySelector('#cameraToggleBtn').addEventListener('click', cameraToggle);
+	//document.querySelector('#cameraSwitchBtn').addEventListener('click', );
+	document.querySelector('#videoOptions').addEventListener('change', async (event) => {
+		const selectedVideoDeviceId = event.target.value;
+		try {
+			const audioTracks = [...stream.getAudioTracks()];
+			if (stream) stream.getVideoTracks().forEach(track => track.stop());
+			// Only request a new video stream
+			const newStream = await navigator.mediaDevices.getUserMedia({
+				video: { deviceId: { exact: selectedVideoDeviceId } },
+			});
+
+			stream = new MediaStream([
+				...newStream.getVideoTracks(),
+				...audioTracks
+			]);
+			document.querySelector('#localVideo').srcObject = stream;
+			localStream = stream;
+
+			if (peerConnection && peerConnection.connectionState !== 'closed') {
+				const videoSenders = peerConnection.getSenders().filter(sender =>
+					sender.track && sender.track.kind === 'video'
+				);
+				const audioSenders = peerConnection.getSenders().filter(sender =>
+					sender.track && sender.track.kind === 'audio'
+				);
+
+				await videoSenders[0].replaceTrack(stream.getVideoTracks()[0]);
+				console.log('Replaced video track in RTCPeerConnection');
+				await audioSenders[0].replaceTrack(stream.getAudioTracks()[0]);
+				console.log('Replaced audio track in RTCPeerConnection');
+			}
+		} catch (err) {
+			alert(`Error switching camera: ${err}`);
+			console.error('Error switching camera:', err);
+		}
+	});
+
+	document.querySelector('#micBtn').addEventListener('click', micToggle);
 	roomDialog = document.querySelector('#room-dialog');
 	createRoomDialog = document.querySelector('#create-room-dialog');
 
@@ -238,6 +280,37 @@ async function init() {
 	});
 }
 
+function cameraToggle() {
+	const videoTrack = stream.getVideoTracks()[0]; // Target the active camera track
+	videoTrack.enabled = !videoTrack.enabled;
+	localStream = stream;
+}
+
+function populateCameraOptions() {
+	const videoTracks = stream.getVideoTracks();
+	const currentVideoTrack = videoTracks.find((vT) => vT.enabled === true); // get the active one
+
+	const selectElement = document.querySelector('#videoOptions');
+	const existingOptions = selectElement.querySelectorAll('option');
+	existingOptions.forEach(option => option.remove()); // Clear existing options
+
+	// getVideoTracks[0] provides id as 'id'
+	// enumerateDevices() => videoOptions[0] provides id as 'deviceId'
+	videoOptions.forEach((track) => {
+		const option = document.createElement('option');
+		option.value = track.deviceId;
+		option.textContent = track.label;
+		if (track.deviceId === currentVideoTrack?.id) option.selected = true;
+		selectElement.appendChild(option);
+	});
+}
+
+function micToggle() {
+	const audioTrack = stream.getAudioTracks()[0]; // Target the active audio track
+	audioTrack.enabled = !audioTrack.enabled;
+	localStream = stream;
+}
+
 // Function to close Overlay
 function closeOverlay(overlay, action) {
 	overlay.classList.add('overlay-hidden');
@@ -341,14 +414,18 @@ async function openUserMedia() {
 	}
 
 	try {
-		const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+		const mediaDevices = navigator.mediaDevices;
+		const devices = await mediaDevices.enumerateDevices();
+		videoOptions = devices.filter((device) => device.kind === 'videoinput');
+		audioOptions = devices.filter((device) => device.kind === 'audioinput');
 
+		stream = await mediaDevices.getUserMedia({ video: true, audio: true });
 		document.querySelector('#localVideo').srcObject = stream;
 		localStream = stream;
+		populateCameraOptions();
 		remoteStream = new MediaStream();
 		document.querySelector('#remoteVideo').srcObject = remoteStream;
 
-		console.log('Stream:', document.querySelector('#localVideo').srcObject);
 		document.querySelector('#permissionBtn').disabled = true;
 		document.querySelector('#createBtn').disabled = false;
 		document.querySelector('#joinBtn').disabled = false;

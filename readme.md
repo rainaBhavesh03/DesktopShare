@@ -29,12 +29,12 @@ Here's what I'm planning to work on:
 
 - [x] Replace polling with WebSockets for signaling
 - [ ] Implement screen sharing via `getDisplayMedia()`
+- [ ] Add stream resolution control functionality
 - [ ] Create data channels for text chat and control signals
 - [ ] Design and implement remote control functionality
-- [ ] Enhance UI/UX with connection status indicators
+- [ ] Shift to using a framework instead of static files
 - [ ] Improve error handling and user feedback
-- [ ] Add support for room persistence
-- [ ] Explore multi-participant calls (3+ users)
+- [ ] Explore multi-participant calls (SFU Setup)
 - [ ] Implement security best practices for remote control
 
 ## 🛠️ Setup Instructions
@@ -114,4 +114,5 @@ Then open `https://localhost:8080` in your browser (accept the self-signed certi
    - Click **Join Room**
    - Enter the room ID from the first participant
 5. You should now see both video streams and be connected
-6. Click **Hang Up** to end the call
+6. Control your stream using options like Camera On/Off, Camera Source Switch, Mic Mute/Unmute and Volume Control
+7. Click **Hang Up** to end the call

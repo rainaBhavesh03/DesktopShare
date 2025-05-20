@@ -102,7 +102,6 @@ io.on('connection', (socket) => {
 					candidate
 				});
 			});
-			console.log(`Sent ${candidates.length} early ICE candidates to callee in room: ${roomId}`);
 		}
 
 		updateRoomActivity(roomId); // Update activity timestamp
@@ -121,7 +120,6 @@ io.on('connection', (socket) => {
 		});
 
 		updateRoomActivity(roomId); // Update activity timestamp
-		console.log(`Answer sent from ${socket.id} to caller in room: ${roomId}`);
 	});
 
 	// Handle ICE candidates
@@ -149,7 +147,6 @@ io.on('connection', (socket) => {
 		}
 
 		updateRoomActivity(roomId); // Update activity timestamp
-		console.log(`ICE candidate processed in room: ${roomId}`);
 	});
 
 	// Update offer for roomId
@@ -173,7 +170,6 @@ io.on('connection', (socket) => {
 			earlyIceCandidates.set(roomId, []);
 		}
 
-		console.log(`Room offer updated for ${roomId} by caller ${socket.id}`);
 		callback({ success: true });
 	});
 
@@ -223,16 +219,26 @@ function handleDisconnection(socket, roomId, isCaller) {
 }
 
 
+
+
+
+//********* THE IMPLEMENTATION BELOW IS INCOMPLETE AND NEEDS TESTING *******
+
+
 // Update room active timestamp
+// This is incomplete as even a room with peers simply talking is an activity.
+// Inactivity is when the room is empty
 function updateRoomActivity(roomId) {
 	if (rooms.has(roomId)) {
 		const room = rooms.get(roomId);
 		room.lastActivity = Date.now();
 		rooms.set(roomId, room);
+		console.log('Room activity updated:', roomId);
 	}
 }
 
 // Periodically clean up stale rooms (e.g., every 5 minutes)
+// This is incomplete as it doesn't hangup the peers in the room before deleting the room itself
 setInterval(() => {
 	const staleTime = 3600000; // 1 hour in milliseconds
 	const now = Date.now();

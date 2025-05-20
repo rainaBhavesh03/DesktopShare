@@ -20,19 +20,16 @@
 					<video id="localVideo" autoplay playsinline muted></video>
 				</div>
 				<div class="videoBox-controls">
-					<button id="cameraToggleBtn" class="controls-button ">
+					<button id="cameraToggleBtn-local" class="controls-button ">
 						<span class="controls-button-label">Camera</span>
 					</button>
-					<button id="cameraSwitchBtn" class="controls-button ">
-						<span class="controls-button-label">Switch</span>
-					</button>
-					<select id="videoOptions" class="controls-button controls-button-label">
+					<select id="videoOptions-local" class="controls-button controls-button-label">
 						<button>
 							<selectedcontent></selectedcontent>
 						</button>
 						<option value="temp">Fetching options...</option>
 					</select>
-					<button id="micBtn" class="controls-button ">
+					<button id="micBtn-local" class="controls-button ">
 						<span class="controls-button-label">Mute</span>
 					</button>
 				</div>
@@ -45,6 +42,18 @@
 						<div class="spinner"></div>
 						<div class="loading-text">Connecting...</div>
 					</div>
+				</div>
+				<div class="videoBox-controls">
+					<button class="controls-button" id="volumeSlider">
+						<span id="volumeSlider-high">🔊</span>
+						<span id="volumeSlider-medium" class="hidden">🔉</span>
+						<span id="volumeSlider-low" class="hidden">🔈</span>
+						<span id="volumeSlider-mute" class="hidden">🔇</span>
+						<input class="hidden" type="range" min="0" max="100" value="100">
+					</button>
+					<button id="cameraToggleBtn-remote" class="controls-button ">
+						<span class="controls-button-label">Camera</span>
+					</button>
 				</div>
 			</div>
 		</div>

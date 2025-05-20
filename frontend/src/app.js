@@ -4,20 +4,42 @@
 let peerConnection = null;
 let localStream = null;
 let remoteStream = null;
-let roomDialog = null;
-let createRoomDialog = null;
-let roomId = null;
 let isCaller = null;
 let hasInitializedMedia = false; // Track if we've already initialized media
 let audioOptions = [];
 let videoOptions = [];
-let stream = null;
+let roomId = null;
+
+// Reusable variables
+let roomDialog = null;
+let createRoomDialog = null;
+let prevVolumeValue = 100; // initially it is set as 100 (in html)
+let currentRoomEle = null;
+let createBtnEle = null;
+let joinBtnEle = null;
+let hangupBtnEle = null;
+let permissionBtnEle = null;
+let cTBLEle = null;
+let vOLEle = null;
+let localVideoEle = null;
+let vSiEle = null;
+let remoteVideoEle = null;
 
 // Websocket variables
 let socket = null;
 
 // Initialize the application
 async function init() {
+	currentRoomEle = document.querySelector('#currentRoom');
+	createBtnEle = document.querySelector('#createBtn');
+	joinBtnEle = document.querySelector('#joinBtn');
+	hangupBtnEle = document.querySelector('#hangupBtn');
+	permissionBtnEle = document.querySelector('#permissionBtn');
+	cTBLEle = document.querySelector('#cameraToggleBtn-local');
+	vOLEle = document.querySelector('#videoOptions-local');
+	localVideoEle = document.querySelector('#localVideo');
+	vSiEle = document.querySelector('#volumeSlider input');
+	remoteVideoEle = document.querySelector('#remoteVideo');
 	socket = io(CONFIG.WEBSOCKET_URL);
 
 	// Connection-related events
@@ -55,7 +77,7 @@ async function init() {
 
 			roomId = data.roomId;
 			isCaller = false;
-			document.querySelector('#currentRoom').innerText = `Current room is ${roomId} - You are the callee!`;
+			currentRoomEle.innerText = `Current room is ${roomId} - You are the callee!`;
 		} catch (error) {
 			console.error('Error handling offer:', error);
 		}
@@ -111,7 +133,7 @@ async function init() {
 					}, (res) => {
 						if (res.success) {
 							console.log('Room offer updated successfully');
-							document.querySelector('#currentRoom').innerText =
+							currentRoomEle.innerText =
 								`Current room is ${roomId} - You are the caller! Waiting for someone to join...`;
 						} else throw new Error(res.message);
 					});
@@ -121,39 +143,37 @@ async function init() {
 					hangUp(); // Fully disconnect on error
 				}
 			} else {
-				document.querySelector('#currentRoom').innerText =
+				currentRoomEle.innerText =
 					`Disconnected from room ${roomId}. You can join another room or create a new one.`;
-				document.querySelector('#createBtn').disabled = false;
-				document.querySelector('#joinBtn').disabled = false;
-				document.querySelector('#hangupBtn').disabled = true;
+				createBtnEle.disabled = false;
+				joinBtnEle.disabled = false;
+				hangupBtnEle.disabled = true;
 				roomId = null;
 				isCaller = null;
 			}
 		}
 	});
 
-	document.querySelector('#permissionBtn').addEventListener('click', openUserMedia);
-	document.querySelector('#hangupBtn').addEventListener('click', hangUp);
-	document.querySelector('#createBtn').addEventListener('click', () => { createRoomDialog.classList.remove('overlay-hidden'); });
-	document.querySelector('#joinBtn').addEventListener('click', () => { roomDialog.classList.remove('overlay-hidden'); });
-	document.querySelector('#cameraToggleBtn').addEventListener('click', cameraToggle);
-	//document.querySelector('#cameraSwitchBtn').addEventListener('click', );
-	document.querySelector('#videoOptions').addEventListener('change', async (event) => {
+	// Local Stream Controls
+	permissionBtnEle.addEventListener('click', openUserMedia);
+	hangupBtnEle.addEventListener('click', hangUp);
+	cTBLEle.addEventListener('click', cameraToggle);
+	vOLEle.addEventListener('change', async (event) => {
 		const selectedVideoDeviceId = event.target.value;
 		try {
-			const audioTracks = [...stream.getAudioTracks()];
-			if (stream) stream.getVideoTracks().forEach(track => track.stop());
+			const audioTracks = [...localStream.getAudioTracks()];
+			if (localStream) localStream.getVideoTracks().forEach(track => track.stop());
 			// Only request a new video stream
 			const newStream = await navigator.mediaDevices.getUserMedia({
 				video: { deviceId: { exact: selectedVideoDeviceId } },
 			});
 
-			stream = new MediaStream([
+			const combinedStream = new MediaStream([
 				...newStream.getVideoTracks(),
 				...audioTracks
 			]);
-			document.querySelector('#localVideo').srcObject = stream;
-			localStream = stream;
+			localStream = combinedStream;
+			localVideoEle.srcObject = localStream;
 
 			if (peerConnection && peerConnection.connectionState !== 'closed') {
 				const videoSenders = peerConnection.getSenders().filter(sender =>
@@ -163,9 +183,9 @@ async function init() {
 					sender.track && sender.track.kind === 'audio'
 				);
 
-				await videoSenders[0].replaceTrack(stream.getVideoTracks()[0]);
+				await videoSenders[0].replaceTrack(localStream.getVideoTracks()[0]);
 				console.log('Replaced video track in RTCPeerConnection');
-				await audioSenders[0].replaceTrack(stream.getAudioTracks()[0]);
+				await audioSenders[0].replaceTrack(localStream.getAudioTracks()[0]);
 				console.log('Replaced audio track in RTCPeerConnection');
 			}
 		} catch (err) {
@@ -173,10 +193,37 @@ async function init() {
 			console.error('Error switching camera:', err);
 		}
 	});
+	document.querySelector('#micBtn-local').addEventListener('click', micToggle);
 
-	document.querySelector('#micBtn').addEventListener('click', micToggle);
+	// Remote Stream Controls
+	document.querySelector('#cameraToggleBtn-remote').addEventListener('click', cameraToggle);
+	document.querySelector('#volumeSlider').addEventListener('mouseover', () => {
+		vSiEle.classList.remove("hidden");
+	});
+	document.querySelector('#volumeSlider').addEventListener('mouseleave', () => {
+		vSiEle.classList.add("hidden");
+	});
+	vSiEle.addEventListener('input', updateVolumeRemote); // no need to call updateVolumeRemote() for initial setup as both are setup with equal value by default
+	document.querySelectorAll('#volumeSlider span').forEach((span) => {
+		span.addEventListener('click', (event) => {
+			if (event.target.id === "volumeSlider-mute") {
+				vSiEle.value = prevVolumeValue;
+				// cant use this => updateVolumeRemote(prevVolumeValue); becuase it accepts 'event'
+				remoteVideoEle.volume = prevVolumeValue / 100;
+				updateVolumeIcons(prevVolumeValue);
+			}
+			else {
+				vSiEle.value = 0;
+				remoteVideoEle.volume = 0;
+				updateVolumeIcons(0);
+			}
+		})
+	});
+
 	roomDialog = document.querySelector('#room-dialog');
 	createRoomDialog = document.querySelector('#create-room-dialog');
+	createBtnEle.addEventListener('click', () => { createRoomDialog.classList.remove('overlay-hidden'); });
+	joinBtnEle.addEventListener('click', () => { roomDialog.classList.remove('overlay-hidden'); });
 
 	// Auto-initialize media at startup
 	await openUserMedia();
@@ -233,7 +280,7 @@ async function init() {
 					closeOverlay(createRoomDialog, "confirm");
 					isCaller = true;
 					roomId = enteredRoomId;
-					document.querySelector('#currentRoom').innerText = `Current room is ${roomId} - You are the caller!`;
+					currentRoomEle.innerText = `Current room is ${roomId} - You are the caller!`;
 				}
 				else throw new Error(res.message);
 			});
@@ -265,7 +312,7 @@ async function init() {
 				if (res.success) {
 					roomId = enteredRoomId;
 					closeOverlay(roomDialog, "confirm");
-					document.querySelector('#currentRoom').innerText = `Current room is ${roomId} - You are the callee`;
+					currentRoomEle.innerText = `Current room is ${roomId} - You are the callee`;
 					isCaller = false;
 				}
 				else throw new Error(res.message);
@@ -280,18 +327,16 @@ async function init() {
 	});
 }
 
-function cameraToggle() {
-	const videoTrack = stream.getVideoTracks()[0]; // Target the active camera track
+function cameraToggle(event) {
+	const videoTrack = event.currentTarget.id === "cameraToggleBtn-local" ? localStream.getVideoTracks()[0] : remoteStream.getVideoTracks()[0]; // Target the active camera track
 	videoTrack.enabled = !videoTrack.enabled;
-	localStream = stream;
 }
 
 function populateCameraOptions() {
-	const videoTracks = stream.getVideoTracks();
+	const videoTracks = localStream.getVideoTracks();
 	const currentVideoTrack = videoTracks.find((vT) => vT.enabled === true); // get the active one
 
-	const selectElement = document.querySelector('#videoOptions');
-	const existingOptions = selectElement.querySelectorAll('option');
+	const existingOptions = vOLEle.querySelectorAll('option');
 	existingOptions.forEach(option => option.remove()); // Clear existing options
 
 	// getVideoTracks[0] provides id as 'id'
@@ -301,14 +346,35 @@ function populateCameraOptions() {
 		option.value = track.deviceId;
 		option.textContent = track.label;
 		if (track.deviceId === currentVideoTrack?.id) option.selected = true;
-		selectElement.appendChild(option);
+		vOLEle.appendChild(option);
 	});
 }
 
-function micToggle() {
-	const audioTrack = stream.getAudioTracks()[0]; // Target the active audio track
+function updateVolumeIcons(volumeValue) {
+	const spans = {
+		high: document.getElementById("volumeSlider-high"),
+		medium: document.getElementById("volumeSlider-medium"),
+		low: document.getElementById("volumeSlider-low"),
+		mute: document.getElementById("volumeSlider-mute")
+	};
+
+	Object.values(spans).forEach(span => span.classList.add("hidden"));
+	if (volumeValue == 0) spans.mute.classList.remove("hidden");
+	else if (volumeValue <= 30) spans.low.classList.remove("hidden");
+	else if (volumeValue <= 70) spans.medium.classList.remove("hidden");
+	else spans.high.classList.remove("hidden");
+}
+
+function updateVolumeRemote(event) {
+	const newValue = event.target.value;
+	remoteVideoEle.volume = newValue / 100;
+	updateVolumeIcons(newValue);
+	prevVolumeValue = newValue; // current becomes the prev for the next
+}
+
+function micToggle() { // no need to implement this for remote as we have a dedicated volume control for remote
+	const audioTrack = localStream.getAudioTracks()[0]; // Target the active audio track
 	audioTrack.enabled = !audioTrack.enabled;
-	localStream = stream;
 }
 
 // Function to close Overlay
@@ -316,14 +382,14 @@ function closeOverlay(overlay, action) {
 	overlay.classList.add('overlay-hidden');
 
 	if (action === "confirm") {
-		document.querySelector('#createBtn').disabled = true;
-		document.querySelector('#joinBtn').disabled = true;
-		document.querySelector('#hangupBtn').disabled = false;
+		createBtnEle.disabled = true;
+		joinBtnEle.disabled = true;
+		hangupBtnEle.disabled = false;
 	}
 	else if (action === "cancel") {
-		document.querySelector('#createBtn').disabled = false;
-		document.querySelector('#joinBtn').disabled = false;
-		document.querySelector('#hangupBtn').disabled = true;
+		createBtnEle.disabled = false;
+		joinBtnEle.disabled = false;
+		hangupBtnEle.disabled = true;
 	}
 
 	if (overlay.id === 'create-room-dialog') {
@@ -419,24 +485,23 @@ async function openUserMedia() {
 		videoOptions = devices.filter((device) => device.kind === 'videoinput');
 		audioOptions = devices.filter((device) => device.kind === 'audioinput');
 
-		stream = await mediaDevices.getUserMedia({ video: true, audio: true });
-		document.querySelector('#localVideo').srcObject = stream;
-		localStream = stream;
+		localStream = await mediaDevices.getUserMedia({ video: true, audio: true });
+		localVideoEle.srcObject = localStream;
 		populateCameraOptions();
 		remoteStream = new MediaStream();
-		document.querySelector('#remoteVideo').srcObject = remoteStream;
+		remoteVideoEle.srcObject = remoteStream;
 
-		document.querySelector('#permissionBtn').disabled = true;
-		document.querySelector('#createBtn').disabled = false;
-		document.querySelector('#joinBtn').disabled = false;
+		permissionBtnEle.disabled = true;
+		createBtnEle.disabled = false;
+		joinBtnEle.disabled = false;
 		hasInitializedMedia = true;
 	} catch (error) {
 		console.error('Error opening user media:', error);
 		alert(`Error accessing camera and microphone: ${error.message}`);
-		document.querySelector('#permissionBtn').textContent = 'Retry Camera/Mic Access';
-		document.querySelector('#permissionBtn').disabled = false;
-		document.querySelector('#createBtn').disabled = true;
-		document.querySelector('#joinBtn').disabled = true;
+		permissionBtnEle.textContent = 'Retry Camera/Mic Access';
+		permissionBtnEle.disabled = false;
+		createBtnEle.disabled = true;
+		joinBtnEle.disabled = true;
 	}
 }
 
@@ -451,10 +516,10 @@ async function hangUp() {
 		resetConnection();
 	}
 
-	document.querySelector('#createBtn').disabled = false;
-	document.querySelector('#joinBtn').disabled = false;
-	document.querySelector('#hangupBtn').disabled = true;
-	document.querySelector('#currentRoom').innerText = '';
+	createBtnEle.disabled = false;
+	joinBtnEle.disabled = false;
+	hangupBtnEle.disabled = true;
+	currentRoomEle.innerText = '';
 	roomId = null;
 	isCaller = null;
 }
@@ -466,9 +531,8 @@ function resetConnection() {
 	}
 	if (remoteStream) {
 		remoteStream.getTracks().forEach(track => track.stop());
-		document.querySelector('#remoteVideo').srcObject = null;
 		remoteStream = new MediaStream();
-		document.querySelector('#remoteVideo').srcObject = remoteStream;
+		remoteVideoEle.srcObject = remoteStream;
 	}
 
 	console.log('Connection reset, ready for new connections');

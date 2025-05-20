@@ -11,7 +11,6 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
 
 h1 {
@@ -50,6 +49,13 @@ video {
 .videoBox {
   position: relative;
   aspect-ratio: calc(4 / 3);
+}
+
+.videoBox-controls {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .video-loading-overlay {
@@ -132,34 +138,51 @@ video {
   font-weight: 600;
 }
 
-#videoOptions {
+#videoOptions-local {
   width: 185px;
   padding-right: 10px;
 }
-#videoOptions > option {
+#videoOptions-local > option {
   font-size: 14px;
   font-weight: normal;
 }
-#videoOptions selectedcontent {
+#videoOptions-local selectedcontent {
   overflow: hidden;
   text-wrap-mode: nowrap;
 }
-#videoOptions:open {
+#videoOptions-local:open {
   cursor: pointer;
   border-style: dashed;
   border-color: black;
   background: white;
 }
-#videoOptions, ::picker(select) {
+#videoOptions-local, ::picker(select) {
   appearance: base-select;
 }
-#videoOptions::picker-icon {
+#videoOptions-local::picker-icon {
   color: #999;
   transition: 0.4s rotate;
 }
-#videoOptions:open::picker-icon {
+#videoOptions-local:open::picker-icon {
   color: black;
   rotate: 180deg;
+}
+
+#volumeSlider {
+  display: flex;
+    gap: 10px;
+    width: max-content;
+    align-items: center;
+}
+#volumeSlider span {
+  height: 18px;
+}
+#volumeSlider input {
+  margin: 0px;
+}
+
+.hidden {
+  display: none;
 }
 
 #currentRoom {
